@@ -1,0 +1,9 @@
+/build/
+/.mygo/
+mygo_windows_*.syso
+
+# Local files
+.DS_Store
+.idea/
+__pycache__/
+/dist/
