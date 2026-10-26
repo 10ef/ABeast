@@ -38,7 +38,7 @@ Pure Go, no cgo, no WebView or Electron. Protection mode adds a local Clash API 
 1. Download from [Releases](https://github.com/10ef/ABeast/releases). macOS: drag **ABeast.app** to Applications (macOS 12+). Windows: unzip the whole archive and run **ABeast.exe**. Builds are not notarized/code-signed; approve them through the system prompt.
 2. Start your proxy client, preferably in **TUN** mode (plus strict-route on Windows).
 3. Click the dog icon: check the Claude and Codex exits.
-4. Turn on **保护模式** (protection mode). It needs the Clash API controller — Clash Verge Rev and mihomo are found automatically; in FlClash enable **外部控制器** (external controller) and restart it. The menu shows the pinned group and node.
+4. Turn on **Protection mode**. It requires the Clash API controller. Clash Verge Rev and mihomo are detected automatically; in FlClash, enable **External controller** and restart the client. The menu shows the pinned group and node.
 
 Settings live in `~/Library/Application Support/ExitGuard/config.json` (Windows: `%AppData%\ExitGuard\config.json`): blocked/allowed countries, targets, controller. See [configuration](docs/configuration.md).
 
