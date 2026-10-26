@@ -22,7 +22,7 @@ Files live in `~/Library/Application Support/ExitGuard/` on macOS or `%AppData%\
 | `interval_seconds` | `30` | Probe interval, minimum 5 seconds |
 | `timeout_seconds` | `8` | Probe timeout, minimum 2 seconds |
 | `fail_threshold` | `3` | Consecutive failures before a route is unsafe |
-| `recover_threshold` | `2` | Consecutive clean probes required for recovery |
+| `recover_threshold` | `2` | Consecutive clean probes required for recovery; one is enough while agents are held |
 | `blocked_countries` | `CN, HK, MO, RU, BY, IR, KP, CU, SY` | Always rejected, even if also allowed |
 | `allowed_countries` | Empty | When nonempty, only these country codes are accepted |
 | `guard_on_country_change` | `true` | A country change from the baseline makes a route unsafe |
@@ -71,7 +71,7 @@ Self-checks look for direct mode, missing TUN, missing strict-route on Windows, 
 1. **Pin nodes.** Prefer a manual Selector directly containing the observed node. URLTest/Fallback selections are a weaker fallback because the core may still switch on failure. Shared groups affect every route using that group. Manual changes are respected; **换节点（解锁后重新选择）** releases the pin so another node can be selected.
 2. **Watch connections.** Every 500 ms, inspect matching vendor-domain connections and close unacceptable exits. An unknown outbound prompts a fresh probe. A direct connection is allowed only after its exit country has been verified as acceptable. Detection is reactive and cannot prevent the first bytes from leaving.
 3. **Block routes, when configured.** With the override below, switch unsafe vendor groups to `REJECT`. Normal probes must succeed through the bypass listener before recovery can be confirmed. Without these groups, the other protection mechanisms remain available.
-4. **Hold processes when necessary.** Pause configured agent names if the controller is unavailable while an exit is unsafe, or when self-checks require it, such as direct mode or missing TUN without environment-proxy evidence. This can affect all matching configured agents, not just one request. A node failure alone does not pause them. ABeast excludes itself and its ancestor processes.
+4. **Hold processes when necessary.** Pause configured agent names if the controller is unavailable while an exit is unsafe, or when self-checks require it, such as direct mode or missing TUN without environment-proxy evidence. This can affect all matching configured agents, not just one request. A node failure alone does not pause them. ABeast excludes itself and its ancestor processes. To resume quickly — ideally while the agents' prompt cache is still warm — a reconnecting controller triggers an immediate probe, and a held route recovers after a single clean probe instead of `recover_threshold`.
 
 Normal shutdown restores recorded selections and resumes held processes; after a crash, restoration records are used at the next start. Do not delete them while protection is active. A forced crash can leave a process suspended until recovery or manual intervention. **立即恢复 Agent（关闭保护模式）** resumes held agents and disables protection.
 

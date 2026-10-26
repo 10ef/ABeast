@@ -437,7 +437,14 @@ func (m *Monitor) evaluate(r *Route, t probe.Trace, g probe.Geo, err error, inGr
 		r.Unsafe = true
 	} else {
 		r.Clean++
-		if r.Unsafe && r.Clean >= cfg.RecoverThreshold {
+		// While the agents are held, one good probe is enough: every
+		// minute frozen risks their prompt cache, and a relapse holds
+		// them again at the next probe.
+		need := cfg.RecoverThreshold
+		if m.held != "" {
+			need = 1
+		}
+		if r.Unsafe && r.Clean >= need {
 			r.Unsafe = false
 		}
 	}

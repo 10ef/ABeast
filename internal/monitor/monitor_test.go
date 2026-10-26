@@ -76,3 +76,17 @@ func TestFailuresNeedThresholdAndRecover(t *testing.T) {
 		t.Fatal("should recover after RecoverThreshold clean probes")
 	}
 }
+
+func TestHeldRouteRecoversAfterOneProbe(t *testing.T) {
+	for _, held := range []bool{false, true} {
+		m, r := testMonitor()
+		m.evaluate(r, probe.Trace{IP: "1.2.3.4", Country: "CN"}, probe.Geo{}, nil, false)
+		if held {
+			m.held = "连不上 Clash 客户端，且出口异常"
+		}
+		m.evaluate(r, probe.Trace{IP: "5.6.7.8", Country: "JP"}, probe.Geo{}, nil, false)
+		if r.Unsafe == held {
+			t.Fatalf("held=%v: unsafe=%v after one good probe", held, r.Unsafe)
+		}
+	}
+}

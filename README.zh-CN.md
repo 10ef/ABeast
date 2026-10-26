@@ -15,7 +15,7 @@ macOS 应用不到 **20 MB**，Windows 可执行文件不到 **10 MB**；内存�
 - **真实出口。** 经过与 Agent 相同的代理规则请求 `https://api.anthropic.com/cdn-cgi/trace` 和 `https://chatgpt.com/cdn-cgi/trace`，显示出口 IP、国家、城市、ISP、延迟和所用节点。
 - **保护模式（一个开关）：**
   - **锁定节点（不泄漏）。** 在 Agent 规则经过的手动选择分组里选中当前节点。节点挂掉或抖动时，请求在代理里直接失败，不会换到别的节点、地区或直连。Agent 只会重试。
-  - **拦住 Agent。** 代理拦不住的情况下——客户端退出或崩溃且出口异常、直连（direct）模式、TUN 没开且没有环境变量代理——约 1–2 秒内暂停 `claude` / `codex`（SIGSTOP / NtSuspendProcess），安全后自动继续。
+  - **拦住 Agent。** 代理拦不住的情况下——客户端退出或崩溃且出口异常、直连（direct）模式、TUN 没开且没有环境变量代理——约 1–2 秒内暂停 `claude` / `codex`（SIGSTOP / NtSuspendProcess）；出口恢复正常后几秒内自动继续，通常赶在提示缓存过期之前。会话完整保留，最多重试被打断的那一次请求。
   - **断开走错的连接。** 每 500 毫秒检查一次，断开经过 DIRECT 或屏蔽地区节点的 AI 连接。
   - **可选 REJECT。** 启用自带的[覆写脚本](clash/exitguard-override.js)后，异常路线还会在代理里切到 `REJECT`。
   - 代理客户端异常退出暂时无法拦截。

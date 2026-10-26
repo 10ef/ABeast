@@ -123,6 +123,7 @@ func (m *Monitor) watchOnce(ctx context.Context, self string, asked map[string]t
 	conns, err := m.blocker.api.Connections(ctx)
 	m.mu.Lock()
 	lost := err != nil && m.watch.Err == ""
+	back := err == nil && m.watch.Err != ""
 	m.watch.Err = ""
 	if err != nil {
 		m.watch.Err = err.Error()
@@ -135,6 +136,11 @@ func (m *Monitor) watchOnce(ctx context.Context, self string, asked map[string]t
 			m.Kick()
 		}
 		return
+	}
+	if back {
+		// The Clash client is back: check the exits now, to let held agents
+		// go while their prompt cache is still warm.
+		m.Kick()
 	}
 	for _, c := range conns {
 		route, why, unknown := s.check(c)

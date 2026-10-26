@@ -15,7 +15,7 @@ The macOS app is under **20 MB** and the Windows executable under **10 MB**, wit
 - **Real exit per API.** Probes `https://api.anthropic.com/cdn-cgi/trace` and `https://chatgpt.com/cdn-cgi/trace` through the same proxy rules as the agents: exit IP, country, city, ISP, latency and the node in use.
 - **Protection mode — one switch:**
   - **Pin the node (no leak).** Selects the agents' current node in the manual group their rule goes through. When that node dies or jitters, requests fail inside the proxy — they never move to another node, region, or DIRECT. Agents just retry.
-  - **Hold the agents.** When the proxy cannot contain the traffic — client quit or crashed while the exit is wrong, `direct` mode, TUN off without an env proxy — ABeast pauses `claude` / `codex` (SIGSTOP / NtSuspendProcess) within about 1–2 s and resumes them when it is safe.
+  - **Hold the agents.** When the proxy cannot contain the traffic — client quit or crashed while the exit is wrong, `direct` mode, TUN off without an env proxy — ABeast pauses `claude` / `codex` (SIGSTOP / NtSuspendProcess) within about 1–2 s, and resumes them seconds after the exit checks out again — usually before the prompt cache expires. Their sessions stay intact; at most the interrupted request is retried.
   - **Cut stray connections.** Every 500 ms, closes AI connections going through DIRECT or a node in a blocked region.
   - **Optional REJECT.** With the bundled [override script](clash/exitguard-override.js), unsafe routes are also switched to `REJECT` in the proxy.
   - ABeast cannot currently intercept traffic if the proxy client exits unexpectedly.

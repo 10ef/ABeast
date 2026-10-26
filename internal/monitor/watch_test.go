@@ -129,3 +129,25 @@ func TestNodeOf(t *testing.T) {
 		t.Fatal(c)
 	}
 }
+
+func TestWatcherChecksWhenClashReturns(t *testing.T) {
+	srv := httptest.NewServer(newFakeClash())
+	defer srv.Close()
+	cfg := config.Default()
+	cfg.Protect = true
+	cfg.Mihomo = config.Mihomo{Controller: srv.URL, Secret: "s3cret"}
+	m := New(cfg)
+	m.watch.Err = "dial tcp: connection refused" // the client was gone
+	m.watchOnce(context.Background(), "ABeast", map[string]time.Time{})
+	select {
+	case <-m.kick:
+	default:
+		t.Fatal("the client coming back must start a round")
+	}
+	m.watchOnce(context.Background(), "ABeast", map[string]time.Time{})
+	select {
+	case <-m.kick:
+		t.Fatal("a steady client is no reason for a round")
+	default:
+	}
+}
