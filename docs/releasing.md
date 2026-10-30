@@ -6,7 +6,7 @@ The workflows need no custom secrets for the current unsigned/ad hoc builds. Git
 
 [CI](../.github/workflows/ci.yml) runs on pushes to `main`, pull requests, manual dispatch, and calls from the release workflow. It downloads and verifies modules, then runs `go test ./...` with cgo disabled on macOS and Windows. It also checks the packaging script and override script with Python and Node.js tests. The Go version comes from `go.mod`.
 
-[Release](../.github/workflows/release.yml) runs when a `v*` tag is pushed. It requires the tag to equal `v` plus the stable `x.y.z` version in `mygo.json`, runs CI, builds all three packages, verifies the asset set, writes SHA-256 checksums, and creates a **draft** release. A failed test or build prevents creation of the draft. Reruns can replace assets on an existing draft; they refuse to modify an already published release.
+[Release](../.github/workflows/release.yml) runs when a `v*` tag is pushed, or by hand (**Run workflow**) on `main`, for `v` plus the version in `mygo.json`: that draft targets the commit run, and publishing it creates the tag. It requires the tag to equal `v` plus the stable `x.y.z` version in `mygo.json`, runs CI, builds all three packages, verifies the asset set, writes SHA-256 checksums, and creates a **draft** release. A failed test or build prevents creation of the draft. Reruns can replace assets on an existing draft; they refuse to modify an already published release.
 
 ## Prepare a version
 

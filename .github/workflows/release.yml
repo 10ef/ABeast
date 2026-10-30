@@ -3,6 +3,9 @@ name: Release
 on:
   push:
     tags: ['v*']
+  # From main, for the version in mygo.json: the draft targets the commit
+  # run, and publishing it creates the tag.
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -15,14 +18,28 @@ jobs:
   version:
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    outputs:
+      tag: ${{ steps.tag.outputs.tag }}
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           persist-credentials: false
       - name: Check tag against app version
+        id: tag
         env:
-          RELEASE_TAG: ${{ github.ref_name }}
-        run: python3 scripts/release.py check-tag "$RELEASE_TAG"
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          if [ "$GITHUB_EVENT_NAME" = workflow_dispatch ]; then
+            if [ "$GITHUB_REF" != refs/heads/main ]; then
+              echo "Run the release from main" >&2
+              exit 1
+            fi
+            RELEASE_TAG="v$(python3 -c 'import json; print(json.load(open("mygo.json"))["version"])')"
+          else
+            RELEASE_TAG="$REF_NAME"
+          fi
+          python3 scripts/release.py check-tag "$RELEASE_TAG"
+          echo "tag=$RELEASE_TAG" >> "$GITHUB_OUTPUT"
 
   checks:
     needs: version
@@ -72,7 +89,7 @@ jobs:
           compression-level: 0
 
   draft:
-    needs: build
+    needs: [version, build]
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
@@ -91,12 +108,18 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
-          RELEASE_TAG: ${{ github.ref_name }}
+          RELEASE_TAG: ${{ needs.version.outputs.tag }}
         run: |
           if gh release view "$RELEASE_TAG" --json isDraft > release-state.json; then
             python3 -c 'import json; assert json.load(open("release-state.json"))["isDraft"], "Refusing to change a published release"'
             gh release upload "$RELEASE_TAG" dist/* --clobber
           else
-            gh release create "$RELEASE_TAG" dist/* --verify-tag --draft \
+            # A tag push has its tag; a manual run creates it on publish.
+            if [ "$GITHUB_EVENT_NAME" = workflow_dispatch ]; then
+              where=(--target "$GITHUB_SHA")
+            else
+              where=(--verify-tag)
+            fi
+            gh release create "$RELEASE_TAG" dist/* "${where[@]}" --draft \
               --title "ABeast $RELEASE_TAG" --notes-file .github/RELEASE_NOTES.md
           fi
