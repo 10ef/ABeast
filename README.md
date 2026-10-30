@@ -8,7 +8,7 @@
 
 **Lightweight exit monitoring and protection for AI agents.**
 
-The macOS app is under **20 MB** and the Windows executable under **10 MB**, with roughly **11 to 28 MB of memory** depending on platform, and **0.4% of one CPU core** on average. ABeast works with Mihomo (Clash Meta) to monitor exit IPs and countries for Claude Code and Codex, pin nodes, close abnormal connections, and send alerts.
+The macOS app is under **25 MB** and the Windows executable under **13 MB**, with roughly **11 to 28 MB of memory** depending on platform, and **0.4% of one CPU core** on average. ABeast works with Mihomo (Clash Meta) to monitor exit IPs and countries for Claude Code and Codex, pin nodes, close abnormal connections, and send alerts.
 
 ## Features
 
@@ -21,23 +21,25 @@ The macOS app is under **20 MB** and the Windows executable under **10 MB**, wit
   - ABeast cannot currently intercept traffic if the proxy client exits unexpectedly.
 - **Leak self-check.** Flags `direct` mode, TUN off, missing strict-route, and AI groups that can fall back to DIRECT.
 - **Alerts.** Notifications on exit changes, new high risks, lost proxy controller, and paused/resumed agents; six tray states.
+- **Native panel.** Clicking the icon opens a panel with a card per route, the protection switch and the environment check; right-click for the full menu and advanced settings.
+- **Environment check.** Scores 0–100 how China-like this computer's timezone, UTC offset, preferred languages and region format look to the agents, after [fuck-claude.com](https://fuck-claude.com/)'s browser check. Local settings only; nothing is sent.
 
 ## Performance and size
 
 | | |
 |---|---|
-| macOS (universal DMG) | 7.6 MB download · < 20M installed |
-| Windows x64 / ARM64 (ZIP) | 4.3 / 4.0 MB download · < 10M exe |
+| macOS (universal DMG) | ≈ 10 MB download · < 25M installed |
+| Windows x64 / ARM64 (ZIP) | ≈ 5.7 / 5.4 MB download · < 13M exe |
 | Memory | ≈ 28 MB on macOS (memory footprint) · ≈ 11 MB on Windows (Task Manager) |
 | CPU | ≈ 0.4% of one core on average (one probe round every 30 s), idle in between |
 
-Pure Go, no cgo, no WebView or Electron. Protection mode adds a local Clash API poll every 500 ms.
+Pure Go, no cgo, no WebView or Electron; the panel is native UI. Protection mode adds a local Clash API poll every 500 ms.
 
 ## Usage
 
 1. Download from [Releases](https://github.com/10ef/ABeast/releases). macOS: drag **ABeast.app** to Applications (macOS 12+). Windows: unzip the whole archive and run **ABeast.exe**. Builds are not notarized/code-signed; approve them through the system prompt.
 2. Start your proxy client, preferably in **TUN** mode (plus strict-route on Windows).
-3. Click the dog icon: check the Claude and Codex exits.
+3. Click the dog icon: check the Claude and Codex exits in the panel. Right-click it for the full menu.
 4. Turn on **Protection mode**. It requires the Clash API controller. Clash Verge Rev and mihomo are detected automatically; in FlClash, enable **External controller** and restart the client. The menu shows the pinned group and node.
 
 Settings live in `~/Library/Application Support/ExitGuard/config.json` (Windows: `%AppData%\ExitGuard\config.json`): blocked/allowed countries, targets, controller. See [configuration](docs/configuration.md).

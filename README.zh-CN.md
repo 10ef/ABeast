@@ -8,7 +8,7 @@
 
 **小体积、低占用，专注 AI Agent 的出口监测与保护。**
 
-macOS 应用不到 **20 MB**，Windows 可执行文件不到 **10 MB**；内存占用约 **11 至 28 MB**（因平台而异），平均约占单核 **0.4%**。ABeast 配合 Mihomo（Clash Meta），为 Claude Code、Codex 提供出口 IP 与地区监测、节点锁定、异常连接断开及通知。
+macOS 应用不到 **25 MB**，Windows 可执行文件不到 **13 MB**；内存占用约 **11 至 28 MB**（因平台而异），平均约占单核 **0.4%**。ABeast 配合 Mihomo（Clash Meta），为 Claude Code、Codex 提供出口 IP 与地区监测、节点锁定、异常连接断开及通知。
 
 ## 功能
 
@@ -21,23 +21,25 @@ macOS 应用不到 **20 MB**，Windows 可执行文件不到 **10 MB**；内存�
   - 代理客户端异常退出暂时无法拦截。
 - **防泄漏自检。** 提示直连模式、TUN 没开、没开 strict-route、AI 分组可能落到 DIRECT。
 - **提醒。** 出口变化、新的高风险项、连不上代理控制接口、Agent 暂停与恢复都会弹通知；托盘有六种状态。
+- **原生面板。** 点图标打开面板：每条路线一张卡片、保护模式开关和环境检测；右键图标是完整菜单和高级设置。
+- **环境检测。** 参考 [fuck-claude.com](https://fuck-claude.com/) 的浏览器检测，按本机时区、时区偏移、首选语言和区域格式打 0–100 分，估算在 Agent 看来是否偏中国化。只读本机设置，不上传。
 
 ## 性能与体积
 
 | | |
 |---|---|
-| macOS（通用 DMG） | 下载 7.6 MB · 安装后 < 20M |
-| Windows x64 / ARM64（ZIP） | 下载 4.3 / 4.0 MB · exe < 10M |
+| macOS（通用 DMG） | 下载约 10 MB · 安装后 < 25M |
+| Windows x64 / ARM64（ZIP） | 下载约 5.7 / 5.4 MB · exe < 13M |
 | 内存 | macOS 约 28 MB（内存占用）· Windows 约 11 MB（任务管理器） |
 | CPU | 平均约占单核 0.4%（每 30 秒检测一轮），其余时间空闲 |
 
-纯 Go、无 cgo，不内嵌 WebView 或 Electron。保护模式额外每 500 毫秒读取一次本机 Clash API。
+纯 Go、无 cgo，不内嵌 WebView 或 Electron，面板是原生界面。保护模式额外每 500 毫秒读取一次本机 Clash API。
 
 ## 使用
 
 1. 从 [Releases](https://github.com/10ef/ABeast/releases) 下载。macOS：把 **ABeast.app** 拖进「应用程序」（macOS 12 及以上）。Windows：解压整个 ZIP，运行 **ABeast.exe**。安装包未公证、未做代码签名，需要在系统提示中手动允许。
 2. 启动代理客户端，建议用 **TUN** 模式（Windows 上同时开 strict-route）。
-3. 点小狗图标，确认 Claude、Codex 的出口。
+3. 点小狗图标，在面板里确认 Claude、Codex 的出口；右键图标打开完整菜单。
 4. 打开「保护模式」。它需要 Clash API 控制接口：Clash Verge Rev 和 mihomo 会自动找到；FlClash 需要打开「外部控制器」并重启一次。菜单会显示锁定的分组和节点。
 
 配置文件在 `~/Library/Application Support/ExitGuard/config.json`（Windows：`%AppData%\ExitGuard\config.json`），可调整屏蔽 / 允许的国家、检测目标和控制接口，详见[配置说明](docs/configuration.md)。

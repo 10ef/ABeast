@@ -27,6 +27,9 @@ const (
 type panel struct {
 	win     *mygo.Window // the open panel, or nil
 	protect bool
+	// pending is a protect switch flipped that no snapshot has caught up
+	// with yet: until one does, the switch keeps the user's position.
+	pending bool
 	login   bool
 	envOpen bool
 }
@@ -37,7 +40,7 @@ func (a *app) togglePanel() {
 		a.panel.win.Close()
 		return
 	}
-	a.panel.protect = a.last.Protect
+	a.panel.protect, a.panel.pending = a.last.Protect, false
 	a.panel.login = mygo.App.OpenAtLogin()
 	a.panel.win = mygo.NewFlyout(mygo.FlyoutOptions{
 		Tray:      a.tray,
@@ -294,9 +297,15 @@ func setting(c *ui.Context, title, desc string, control func()) {
 func (a *app) protection(c *ui.Context, s monitor.Snapshot) {
 	t := c.Theme()
 	section(c, "保护")
-	a.panel.protect = s.Protect
+	if a.panel.pending && s.Protect == a.panel.protect {
+		a.panel.pending = false
+	}
+	if !a.panel.pending {
+		a.panel.protect = s.Protect
+	}
 	setting(c, "保护模式", "锁定节点 · 断开异常连接", func() {
 		if ui.Switch(c.Key("protect"), &a.panel.protect).Label("保护模式").Changed() {
+			a.panel.pending = true
 			a.mon.SetProtect(a.panel.protect)
 		}
 	})
