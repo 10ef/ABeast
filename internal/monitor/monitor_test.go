@@ -90,25 +90,3 @@ func TestHeldRouteRecoversAfterOneProbe(t *testing.T) {
 		}
 	}
 }
-
-func TestLowScoreAlertsOnce(t *testing.T) {
-	m, r := testMonitor()
-	m.evaluate(r, probe.Trace{IP: "1.1.1.1", Country: "JP"}, probe.Geo{}, nil, false)
-	good := []probe.Score{{Source: "Claude", Score: 80}}
-	low := []probe.Score{{Source: "Claude", Score: 20, Label: "高危"}}
-	if a := m.score(r, good); len(a) != 0 {
-		t.Fatalf("a good score does not alert: %v", a)
-	}
-	if a := m.score(r, low); len(a) != 1 || r.Unsafe {
-		t.Fatalf("a low score alerts, and only informs: %v unsafe=%v", a, r.Unsafe)
-	}
-	if a := m.score(r, low); len(a) != 0 {
-		t.Fatalf("a low score alerts once: %v", a)
-	}
-	if a := m.score(r, []probe.Score{{Source: "Claude", Score: 90, Region: "不支持", Unsupported: true}}); len(a) != 0 {
-		t.Fatalf("still low while the region is unsupported: %v", a)
-	}
-	if a := m.score(r, good); len(a) != 1 {
-		t.Fatalf("recovery alerts: %v", a)
-	}
-}

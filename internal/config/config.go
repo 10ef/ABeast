@@ -46,32 +46,6 @@ type Mihomo struct {
 	Secret     string `json:"secret"`
 }
 
-// ScoreSource is one IP reputation API, such as ip.net.coffee's Claude,
-// ChatGPT or general IP score. The fields name where its JSON answer keeps
-// each value, as dotted paths like "data.score".
-type ScoreSource struct {
-	Name string `json:"name"`
-	// URL is the API, {ip} replaced by the exit IP. Empty turns the source
-	// off. Without {ip} it is asked through the route's own proxy, so it
-	// scores the exit it sees.
-	URL    string `json:"url"`
-	Score  string `json:"score"`            // a number from 0 to 100
-	Label  string `json:"label,omitempty"`  // e.g. "纯净"
-	Region string `json:"region,omitempty"` // true, or text such as "正常"
-	// Page is the web page to open from the menu, {ip} replaced too.
-	Page string `json:"page,omitempty"`
-	// Targets are the routes it scores. Empty is all of them.
-	Targets []string `json:"targets,omitempty"`
-}
-
-// Reputation scores each exit IP.
-type Reputation struct {
-	Sources []ScoreSource `json:"sources"`
-	// AlertBelow alerts when a score falls below it, or a region turns
-	// unsupported. 0 alerts on neither.
-	AlertBelow int `json:"alert_below"`
-}
-
 // Config is the settings in config.json.
 type Config struct {
 	IntervalSeconds int `json:"interval_seconds"`
@@ -102,10 +76,9 @@ type Config struct {
 	ShowDirect bool `json:"show_direct"`
 	// TrayTitle is the text beside the menu bar icon (macOS), once per
 	// distinct exit: {flag} {code} {country} {region} {city} {ip} {isp}
-	// {ms} {score}. Empty shows the icon alone.
-	TrayTitle  string     `json:"tray_title"`
-	Targets    []Target   `json:"targets"`
-	Reputation Reputation `json:"reputation"`
+	// {ms}. Empty shows the icon alone.
+	TrayTitle string   `json:"tray_title"`
+	Targets   []Target `json:"targets"`
 }
 
 // Default is the config of a first run.
@@ -128,13 +101,6 @@ func Default() *Config {
 				Domains:    []string{"openai.com", "chatgpt.com", "oaistatic.com", "oaiusercontent.com"},
 				BlockGroup: "🛡 EG-OpenAI", ProbeWhileBlocked: "http://127.0.0.1:17891"},
 		},
-		// ip.net.coffee's scores. Their url and fields are filled in once
-		// its API is known; until then they stay off.
-		Reputation: Reputation{AlertBelow: 50, Sources: []ScoreSource{
-			{Name: "Claude", Page: "https://ip.net.coffee/claude/", Targets: []string{"Claude"}},
-			{Name: "ChatGPT", Page: "https://ip.net.coffee/", Targets: []string{"Codex"}},
-			{Name: "IP", Page: "https://ip.net.coffee/"},
-		}},
 	}
 }
 

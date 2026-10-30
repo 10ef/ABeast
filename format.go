@@ -53,68 +53,6 @@ func routeDetail(r monitor.Route) string {
 	return strings.Join(parts, " · ")
 }
 
-// scoreLine shows a route's reputation, the first source with a bar:
-// "🟢 Claude 80 纯净 ▰▰▰▰▰▰▰▰▱▱ · 🟢 IP 80 · 支持地区 正常".
-func scoreLine(r monitor.Route) string {
-	var parts []string
-	region := ""
-	for i, s := range r.Scores {
-		if s.Err != "" {
-			parts = append(parts, s.Source+" 评分 ✕ "+s.Err)
-			continue
-		}
-		p := strings.TrimSpace(fmt.Sprintf("%s %s %d %s", scoreDot(s.Score), s.Source, s.Score, s.Label))
-		if i == 0 {
-			p += " " + scoreBar(s.Score)
-		}
-		parts = append(parts, p)
-		if region == "" && s.Region != "" {
-			region = "支持地区 " + s.Region
-			if s.Unsupported {
-				region = "⛔ " + region
-			}
-		}
-	}
-	if region != "" {
-		parts = append(parts, region)
-	}
-	return strings.Join(parts, " · ")
-}
-
-// scoreDot colors a score the way ip.net.coffee's scale does: 0 high risk
-// to 100 trusted.
-func scoreDot(n int) string {
-	switch {
-	case n < 25:
-		return "🔴"
-	case n < 50:
-		return "🟠"
-	case n < 75:
-		return "🟡"
-	}
-	return "🟢"
-}
-
-// scoreBar draws a score out of ten blocks.
-func scoreBar(n int) string {
-	full := min(max((n+5)/10, 0), 10)
-	return strings.Repeat("▰", full) + strings.Repeat("▱", 10-full)
-}
-
-// lowestScore is a route's worst score, for {score}; empty without one.
-func lowestScore(r monitor.Route) string {
-	low := -1
-	for _, s := range r.Scores {
-		if s.Err == "" && (low < 0 || s.Score < low) {
-			low = s.Score
-		}
-	}
-	if low < 0 {
-		return ""
-	}
-	return fmt.Sprint(low)
-}
-
 // titlePresets are the menu's choices for the text beside the icon.
 var titlePresets = []struct{ label, tpl string }{
 	{"国旗 + 代码", "{flag} {code}"},
@@ -123,7 +61,6 @@ var titlePresets = []struct{ label, tpl string }{
 	{"国家", "{country}"},
 	{"城市", "{city}"},
 	{"国旗 + 延迟", "{flag} {ms}ms"},
-	{"国旗 + 信任评分", "{flag} {score}"},
 	{"仅图标", ""},
 }
 
@@ -149,7 +86,6 @@ func formatTitle(tpl string, r monitor.Route) string {
 		"{ip}", r.Trace.IP,
 		"{isp}", r.Geo.ISP,
 		"{ms}", fmt.Sprint(r.Trace.Latency.Milliseconds()),
-		"{score}", lowestScore(r),
 	).Replace(tpl))
 }
 
