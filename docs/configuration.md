@@ -33,7 +33,41 @@ Files live in `~/Library/Application Support/ExitGuard/` on macOS or `%AppData%\
 
 Country codes use uppercase ISO codes. A blocked or non-allowed country is unsafe immediately; connection failures use the threshold. After system wake, a 20-second grace period avoids counting transient failures. To accept an intentional route change, use **高级 → 把当前出口设为正常基线**. This does not override the country policy.
 
-Menu bar text supports `{flag}`, `{code}`, `{country}`, `{region}`, `{city}`, `{ip}`, `{isp}`, and `{ms}`. Windows displays details in the tray menu and tooltip instead.
+Menu bar text supports `{flag}`, `{code}`, `{country}`, `{region}`, `{city}`, `{ip}`, `{isp}`, `{ms}`, and `{score}` (the route's lowest reputation score). Windows displays details in the tray menu and tooltip instead.
+
+## IP reputation scores
+
+Under each route the menu can show its exit IP's reputation, such as ip.net.coffee's Claude, ChatGPT, and IP trust scores:
+
+```
+🟢 Claude 80 纯净 ▰▰▰▰▰▰▰▰▱▱ · 🟢 IP 80 · 支持地区 正常
+```
+
+The dot follows a 0 (high risk) to 100 (trusted) scale: 🔴 under 25, 🟠 under 50, 🟡 under 75, 🟢 otherwise. ⛔ marks a region the vendor does not serve. Clicking the line opens the source's page. A score is asked once per exit IP and kept for 6 hours (10 minutes after a failure), so it adds no load to the 30-second probe round.
+
+```json
+{
+  "reputation": {
+    "alert_below": 50,
+    "sources": [
+      {
+        "name": "Claude",
+        "url": "https://example.com/api/score?ip={ip}",
+        "score": "data.score",
+        "label": "data.level",
+        "region": "data.supported",
+        "page": "https://ip.net.coffee/claude/",
+        "targets": ["Claude"]
+      }
+    ]
+  }
+}
+```
+
+- `url`: the API; `{ip}` is replaced by the exit IP. A source with an empty `url` is off, which is how the default ip.net.coffee entries ship until their API is filled in. A URL without `{ip}` is asked through the route's own `proxy`, so the source scores the exit it sees; the proxy's rules for the API's host must then send it out the same node as the vendor's host.
+- `score`, `label`, `region`: dotted paths into the JSON answer, numbers indexing arrays (`list.0.score`). The score may be a number or a numeric string. The region may be a boolean, or text where `正常`, `支持`, `ok`, and similar mean supported.
+- `targets`: routes the source scores; empty means all of them.
+- `alert_below`: notify when a score falls below it or a region turns unsupported, and again on recovery; `0` turns these alerts off. Scores only inform: protection mode does not act on them.
 
 ## Targets and proxy paths
 

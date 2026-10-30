@@ -30,3 +30,21 @@ func TestTrayTitle(t *testing.T) {
 		}
 	}
 }
+
+func TestScoreLine(t *testing.T) {
+	r := monitor.Route{Scores: []probe.Score{
+		{Source: "Claude", Score: 80, Label: "纯净", Region: "正常"},
+		{Source: "IP", Score: 42},
+	}}
+	if got, want := scoreLine(r), "🟢 Claude 80 纯净 ▰▰▰▰▰▰▰▰▱▱ · 🟠 IP 42 · 支持地区 正常"; got != want {
+		t.Errorf("got %q, want %q", got, want)
+	}
+	r.Scores[0].Region, r.Scores[0].Unsupported = "不支持", true
+	r.Scores[1].Err = "超时"
+	if got, want := scoreLine(r), "🟢 Claude 80 纯净 ▰▰▰▰▰▰▰▰▱▱ · IP 评分 ✕ 超时 · ⛔ 支持地区 不支持"; got != want {
+		t.Errorf("got %q, want %q", got, want)
+	}
+	if got := formatTitle("{flag} {score}", monitor.Route{Trace: probe.Trace{Country: "JP"}, Scores: r.Scores}); got != "🇯🇵 80" {
+		t.Errorf("{score}: got %q", got)
+	}
+}

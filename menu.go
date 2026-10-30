@@ -21,6 +21,7 @@ func (a *app) buildMenu() *mygo.Menu {
 		items = append(items,
 			&mygo.MenuItem{ID: fmt.Sprintf("r%d", i), Label: t.Name + "  检测中…", Click: a.copyRoute(i)},
 			info(fmt.Sprintf("r%d-ip", i), "      "+t.Host),
+			&mygo.MenuItem{ID: fmt.Sprintf("r%d-score", i), Hidden: true, Click: a.openScore(i)},
 			&mygo.MenuItem{ID: fmt.Sprintf("r%d-path", i), Disabled: true, Hidden: true},
 			&mygo.MenuItem{ID: fmt.Sprintf("r%d-why", i), Disabled: true, Hidden: true},
 		)
@@ -126,6 +127,23 @@ func (a *app) copyRoute(i int) func(*mygo.MenuItem, *mygo.Window) {
 	}
 }
 
+// openScore opens the page of a route's first reputation source.
+func (a *app) openScore(i int) func(*mygo.MenuItem, *mygo.Window) {
+	return func(*mygo.MenuItem, *mygo.Window) {
+		if i >= len(a.last.Routes) {
+			return
+		}
+		for _, s := range a.last.Routes[i].Scores {
+			if s.Page != "" {
+				if err := mygo.Shell.OpenExternal(s.Page); err != nil {
+					log.Println("open score page:", err)
+				}
+				return
+			}
+		}
+	}
+}
+
 // render shows a snapshot. It runs on the main thread.
 func (a *app) render(s monitor.Snapshot) {
 	a.last = s
@@ -147,6 +165,9 @@ func (a *app) render(s monitor.Snapshot) {
 	for i, r := range s.Routes {
 		a.item(fmt.Sprintf("r%d", i)).SetLabel(routeLine(r))
 		a.item(fmt.Sprintf("r%d-ip", i)).SetLabel("      " + routeDetail(r))
+		score := a.item(fmt.Sprintf("r%d-score", i))
+		score.SetLabel("      " + scoreLine(r))
+		score.SetVisible(len(r.Scores) > 0)
 		// The group the blocker switches, only where the override script set
 		// it up: without it the line would only say the group is missing.
 		path := a.item(fmt.Sprintf("r%d-path", i))

@@ -25,6 +25,7 @@ type Route struct {
 	Node     string        `json:"node,omitempty"`  // the proxy's outbound for the probe, e.g. DIRECT
 	Chain    []string      `json:"chain,omitempty"` // the node, then the groups up to the rule's policy
 	Geo      probe.Geo     `json:"geo"`
+	Scores   []probe.Score `json:"scores,omitempty"` // the exit IP's reputation
 	Err      string        `json:"error,omitempty"`
 	Fails    int           `json:"fails"`
 	Clean    int           `json:"clean"` // consecutive probes with no problem
@@ -36,6 +37,7 @@ type Route struct {
 	lastIP   string
 	lastCC   string
 	informed bool // shown only, never guarded or alerted on, like the direct route
+	lowScore bool // a score was below Reputation.AlertBelow at the last round
 }
 
 // Snapshot is what the tray shows and status.json holds.
@@ -70,6 +72,7 @@ type Monitor struct {
 	routes  []*Route
 	direct  *Route
 	geo     *probe.GeoCache
+	scores  *probe.ScoreCache
 	blocker *Blocker
 	pinner  *Pinner
 	blocked map[string]bool // routes whose group rejects, by name
@@ -97,7 +100,7 @@ type Monitor struct {
 }
 
 func New(cfg *config.Config) *Monitor {
-	m := &Monitor{cfg: cfg, geo: probe.NewGeoCache(), kick: make(chan struct{}, 1),
+	m := &Monitor{cfg: cfg, geo: probe.NewGeoCache(), scores: probe.NewScoreCache(), kick: make(chan struct{}, 1),
 		blocked: map[string]bool{}, simulate: map[string]bool{}, nodes: map[string]string{}, alerted: map[string]time.Time{},
 		pinnedNode: map[string]string{}, riskSeen: map[string]bool{}, apiOK: true}
 	for _, t := range cfg.Targets {
@@ -267,10 +270,11 @@ func (m *Monitor) round(ctx context.Context) {
 		all = append(all, m.direct)
 	}
 	type result struct {
-		trace probe.Trace
-		geo   probe.Geo
-		chain []string
-		err   error
+		trace  probe.Trace
+		geo    probe.Geo
+		scores []probe.Score
+		chain  []string
+		err    error
 	}
 	results := make([]result, len(all))
 	proxies := make([]string, len(all))
@@ -298,6 +302,9 @@ func (m *Monitor) round(ctx context.Context) {
 			res := result{trace: t, err: err, chain: chain}
 			if err == nil {
 				res.geo, _ = m.geo.Lookup(ctx, t.IP, m.cfg.Timeout())
+				if !r.informed {
+					res.scores = m.lookupScores(ctx, r.Target, t.IP)
+				}
 			}
 			results[i] = res
 		}()
@@ -309,6 +316,9 @@ func (m *Monitor) round(ctx context.Context) {
 	var alerts []alert
 	for i, r := range all {
 		alerts = append(alerts, m.evaluate(r, results[i].trace, results[i].geo, results[i].err, inGrace)...)
+		if !r.informed {
+			alerts = append(alerts, m.score(r, results[i].scores)...)
+		}
 		r.Node, r.Chain = "", nil
 		if res := results[i]; res.err == nil && len(res.chain) > 0 {
 			r.Node, r.Chain = res.chain[0], res.chain
@@ -470,4 +480,61 @@ func writeStatus(s Snapshot) {
 	if os.WriteFile(tmp, data, 0o644) == nil {
 		_ = os.Rename(tmp, path)
 	}
+}
+
+// lookupScores asks every reputation source that scores the target about
+// its exit IP, at once.
+func (m *Monitor) lookupScores(ctx context.Context, t config.Target, ip string) []probe.Score {
+	var srcs []config.ScoreSource
+	for _, src := range m.cfg.Reputation.Sources {
+		if src.URL != "" && (len(src.Targets) == 0 || slices.Contains(src.Targets, t.Name)) {
+			srcs = append(srcs, src)
+		}
+	}
+	scores := make([]probe.Score, len(srcs))
+	var wg sync.WaitGroup
+	for i, src := range srcs {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			scores[i] = m.scores.Lookup(ctx, src, ip, t.Proxy, m.cfg.Timeout())
+		}()
+	}
+	wg.Wait()
+	return scores
+}
+
+// score records a route's reputation and alerts when it turns low: a score
+// below Reputation.AlertBelow, or a region the vendor does not serve. It
+// only informs; protection mode does not act on it. Called with m.mu held.
+func (m *Monitor) score(r *Route, scores []probe.Score) []alert {
+	if r.Err != "" {
+		return nil // keep the last scores while the route is down
+	}
+	r.Scores = scores
+	below := m.cfg.Reputation.AlertBelow
+	if below <= 0 {
+		r.lowScore = false
+		return nil
+	}
+	var low []string
+	for _, s := range scores {
+		switch {
+		case s.Err != "":
+		case s.Unsupported:
+			low = append(low, fmt.Sprintf("%s 地区不支持（%s）", s.Source, s.Region))
+		case s.Score < below:
+			low = append(low, fmt.Sprintf("%s 信任评分 %d %s", s.Source, s.Score, s.Label))
+		}
+	}
+	was := r.lowScore
+	r.lowScore = len(low) > 0
+	switch {
+	case r.lowScore && !was:
+		return []alert{{"score-" + r.Target.Name, "⚠️ " + r.Target.Name + " 出口 IP 信誉低",
+			r.Trace.IP + "\n" + strings.Join(low, "；")}}
+	case !r.lowScore && was:
+		return []alert{{"score-" + r.Target.Name, "✅ " + r.Target.Name + " 出口 IP 信誉恢复", r.Trace.IP}}
+	}
+	return nil
 }
