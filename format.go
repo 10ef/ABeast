@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"github.com/10ef/ABeast/internal/envcheck"
 	"github.com/10ef/ABeast/internal/monitor"
 	"github.com/10ef/ABeast/internal/probe"
 	"strings"
@@ -51,6 +52,29 @@ func routeDetail(r monitor.Route) string {
 		parts = append(parts, fmt.Sprintf("失败 %d 次", r.Fails))
 	}
 	return strings.Join(parts, " · ")
+}
+
+// envLine is the environment check in one line, with the signals it hit:
+// "🟡 环境检测 45/100 中等风险 · 系统时区 · 时区偏移".
+func envLine(r envcheck.Report) string {
+	dot := map[string]string{"low": "🟢", "medium": "🟡", "high": "🔴"}[r.Band]
+	parts := []string{fmt.Sprintf("%s 环境检测 %d/100 %s", dot, r.Total, r.BandName())}
+	for _, s := range r.Signals {
+		if s.Hit() {
+			parts = append(parts, s.Name)
+		}
+	}
+	return strings.Join(parts, " · ")
+}
+
+// signalLine is one signal of the environment check:
+// "⚠️ 系统时区  Asia/Shanghai  +26/26".
+func signalLine(s envcheck.Signal) string {
+	mark := "✓"
+	if s.Hit() {
+		mark = "⚠️"
+	}
+	return fmt.Sprintf("%s %s  %s  +%d/%d", mark, s.Name, s.Raw, s.Points, s.Weight)
 }
 
 // titlePresets are the menu's choices for the text beside the icon.

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/10ef/ABeast/internal/agent"
 	"github.com/10ef/ABeast/internal/config"
+	"github.com/10ef/ABeast/internal/envcheck"
 	"github.com/10ef/ABeast/internal/monitor"
 	"github.com/egoist/mygo"
 	"log"
@@ -30,6 +31,7 @@ func (a *app) buildMenu() *mygo.Menu {
 		items = append(items, &mygo.MenuItem{ID: fmt.Sprintf("leak-%d", i), Disabled: true, Hidden: true})
 	}
 	items = append(items,
+		&mygo.MenuItem{ID: "env", Label: "环境检测：检测中…", Submenu: a.envMenu()},
 		mygo.Separator(),
 		&mygo.MenuItem{ID: "protect", Label: "🔒 保护模式（锁定节点 · 断开异常连接）", Type: mygo.MenuItemCheckbox,
 			Checked: a.cfg.Protect, Click: func(it *mygo.MenuItem, _ *mygo.Window) {
@@ -43,7 +45,7 @@ func (a *app) buildMenu() *mygo.Menu {
 		&mygo.MenuItem{ID: "repin", Label: "换节点（解锁后重新选择）", Hidden: !a.cfg.Protect,
 			Click: func(*mygo.MenuItem, *mygo.Window) { go a.mon.Repin(context.Background()) }},
 		mygo.Separator(),
-		&mygo.MenuItem{Label: "立即检测", Accelerator: "CmdOrCtrl+R", Click: func(*mygo.MenuItem, *mygo.Window) { a.mon.Kick() }},
+		&mygo.MenuItem{Label: "立即检测", Accelerator: "CmdOrCtrl+R", Click: func(*mygo.MenuItem, *mygo.Window) { a.recheck() }},
 		&mygo.MenuItem{Label: "高级", Submenu: a.advancedMenu()},
 		&mygo.MenuItem{ID: "login", Label: "开机启动", Type: mygo.MenuItemCheckbox, Checked: mygo.App.OpenAtLogin(),
 			Click: func(it *mygo.MenuItem, _ *mygo.Window) {
@@ -90,6 +92,46 @@ func (a *app) advancedMenu() []*mygo.MenuItem {
 			}
 		}},
 	)
+}
+
+// envMenu lists the environment check's signals, after fuck-claude.com.
+func (a *app) envMenu() []*mygo.MenuItem {
+	var items []*mygo.MenuItem
+	for i := range envSignals {
+		items = append(items, &mygo.MenuItem{ID: fmt.Sprintf("env-%d", i), Disabled: true})
+	}
+	return append(items,
+		&mygo.MenuItem{ID: "env-note", Label: "仅读取本机时区与语言设置，不上传", Disabled: true},
+		mygo.Separator(),
+		&mygo.MenuItem{Label: "重新检测", Click: func(*mygo.MenuItem, *mygo.Window) { go a.checkEnv() }},
+	)
+}
+
+// envSignals is how many signals the environment check scores.
+const envSignals = 4
+
+// checkEnv runs the environment check and shows it.
+func (a *app) checkEnv() {
+	r := envcheck.Check()
+	mygo.RunOnMain(func() {
+		a.env = r
+		a.renderEnv(r)
+		a.refreshPanel()
+	})
+}
+
+// renderEnv shows an environment check. It runs on the main thread.
+func (a *app) renderEnv(r envcheck.Report) {
+	a.item("env").SetLabel(envLine(r))
+	for i := range envSignals {
+		it := a.item(fmt.Sprintf("env-%d", i))
+		if i >= len(r.Signals) {
+			it.SetVisible(false)
+			continue
+		}
+		it.SetLabel(signalLine(r.Signals[i]))
+		it.SetVisible(true)
+	}
 }
 
 // titleMenu offers the presets, plus the config's own template when it is
@@ -217,6 +259,7 @@ func (a *app) render(s monitor.Snapshot) {
 		procs += "  ⚠️ " + s.Guard.Errors[0]
 	}
 	a.item("procs").SetLabel(procs)
+	a.refreshPanel()
 }
 
 // maxRisks is how many risks of the self-check the menu lists.

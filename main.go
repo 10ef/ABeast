@@ -17,6 +17,7 @@ import (
 
 	"github.com/10ef/ABeast/internal/agent"
 	"github.com/10ef/ABeast/internal/config"
+	"github.com/10ef/ABeast/internal/envcheck"
 	"github.com/10ef/ABeast/internal/monitor"
 )
 
@@ -29,6 +30,8 @@ type app struct {
 	last       monitor.Snapshot
 	simulating map[string]bool
 	title      string // TrayTitle, changed from the menu
+	env        envcheck.Report
+	panel      panel
 }
 
 func (a *app) item(id string) *mygo.MenuItem { return a.menu.ItemByID(id) }
@@ -85,19 +88,29 @@ func main() {
 			IconIsTemplate: template,
 			Title:          "…",
 			ToolTip:        "ABeast · 正在检测出口…",
-			Menu:           a.menu,
 		})
 		if err != nil {
 			log.Fatal("tray: ", err)
 		}
-		if runtime.GOOS == "windows" {
-			// The notification area pops up the menu as it was when last
-			// set, not as render left it, so set it again just before a
-			// right click pops it up. A left click shows nothing there:
-			// pop it up too.
-			a.tray.OnRightClick(func() { a.tray.SetMenu(a.menu) })
-			a.tray.OnClick(a.tray.PopUpMenu)
+		if runtime.GOOS == "linux" {
+			// AppIndicator only shows menus, and tells nothing of clicks.
+			a.tray.SetMenu(a.menu)
+		} else {
+			// A click opens the panel; a right click the menu, with the
+			// details and the advanced settings. The menu is set for that
+			// popup only, as it was when last set, so that clicks keep
+			// opening the panel.
+			a.tray.OnClick(a.togglePanel)
+			a.tray.OnRightClick(func() {
+				if a.panel.win != nil {
+					a.panel.win.Close()
+				}
+				a.tray.SetMenu(a.menu)
+				defer a.tray.SetMenu(nil)
+				a.tray.PopUpMenu()
+			})
 		}
+		go a.checkEnv()
 		mygo.Power.OnSuspend(a.mon.Sleep)
 		mygo.Power.OnResume(a.mon.Wake)
 		mygo.Network.OnChanged(func(mygo.NetworkStatus) { a.mon.Kick() })
@@ -113,6 +126,8 @@ func main() {
 			a.tray.Destroy()
 		}
 	})
+	// The panel is the only window: keep running as it closes.
+	mygo.App.OnWindowAllClosed(func() {})
 	if err := mygo.App.Run(); err != nil {
 		log.Fatal(err)
 	}
