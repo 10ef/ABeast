@@ -166,12 +166,7 @@ func (a *app) routeCard(c *ui.Context, i int, r monitor.Route, s monitor.Snapsho
 				ui.Textf(c, "%dms", r.Trace.Latency.Milliseconds()).FontSize(12).TextColor(t.TextMuted)
 			}
 		})
-		ui.Text(c, routeDetail(r)).FontSize(11).TextColor(t.TextMuted)
-		if s.Protect {
-			if st := s.Pin.Routes[r.Target.Name]; st.Node != "" {
-				ui.Text(c, "已锁定 "+st.Group+" → "+st.Node).FontSize(11).TextColor(t.TextMuted)
-			}
-		}
+		ui.Text(c, panelDetail(r)).FontSize(11).TextColor(t.TextMuted).MaxLines(1)
 		if r.Problem != "" {
 			ui.Text(c, "⚠️ "+r.Problem).FontSize(12).TextColor(t.Danger)
 		}
@@ -179,6 +174,24 @@ func (a *app) routeCard(c *ui.Context, i int, r monitor.Route, s monitor.Snapsho
 	if e.Clicked() {
 		a.copyRoute(i)(nil, nil)
 	}
+}
+
+// panelDetail is a route card's second line: its IP, ISP and node. The
+// menu's line, with the host and the proxy, stays for the right click.
+func panelDetail(r monitor.Route) string {
+	var parts []string
+	for _, p := range []string{r.Trace.IP, r.Geo.ISP, r.Node} {
+		if p != "" {
+			parts = append(parts, p)
+		}
+	}
+	if r.Err != "" && r.Fails > 0 {
+		parts = append(parts, fmt.Sprintf("失败 %d 次", r.Fails))
+	}
+	if len(parts) == 0 {
+		return r.Target.Host
+	}
+	return strings.Join(parts, " · ")
 }
 
 // probeLoc is where a route leaves: its flag and place.
