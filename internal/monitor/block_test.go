@@ -24,6 +24,7 @@ type fakeClash struct {
 	mode    string
 	delay   map[string]int // a proxy's delay; missing times out
 	tun     map[string]any
+	ipv6    *bool
 }
 
 func newFakeClash() *fakeClash {
@@ -48,7 +49,7 @@ func (f *fakeClash) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	case path == "/version":
 		json.NewEncoder(w).Encode(map[string]any{"meta": true, "version": "test"})
 	case path == "/configs":
-		json.NewEncoder(w).Encode(map[string]any{"mode": f.mode, "tun": f.tun})
+		json.NewEncoder(w).Encode(map[string]any{"mode": f.mode, "tun": f.tun, "ipv6": f.ipv6})
 	case path == "/proxies":
 		json.NewEncoder(w).Encode(map[string]any{"proxies": f.proxies})
 	case strings.HasPrefix(path, "/proxies/") && strings.HasSuffix(path, "/delay"):

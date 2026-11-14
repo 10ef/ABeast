@@ -44,7 +44,7 @@ type Report struct {
 
 // BandName is the band in words.
 func (r Report) BandName() string {
-	return map[string]string{"low": "低风险", "medium": "中等风险", "high": "高风险"}[r.Band]
+	return map[string]string{"low": "信号较少", "medium": "信号中等", "high": "信号较多"}[r.Band]
 }
 
 // Check reads the system's settings and scores them.

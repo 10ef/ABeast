@@ -82,8 +82,8 @@ func TestSelfCheckHoldsWithoutTUN(t *testing.T) {
 	if !hold("127.0.0.1:7890") {
 		t.Fatal("agents that ignore the system proxy go around it without TUN")
 	}
-	if hold("env") {
-		t.Fatal("with HTTPS_PROXY in the environment the agents reach the proxy")
+	if !hold("env") {
+		t.Fatal("ABeast probe environment does not establish agents use the proxy")
 	}
 	fake.mode = "direct"
 	if !hold("env") {

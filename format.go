@@ -55,10 +55,10 @@ func routeDetail(r monitor.Route) string {
 }
 
 // envLine is the environment check in one line, with the signals it hit:
-// "🟡 环境检测 45/100 中等风险 · 系统时区 · 时区偏移".
+// "🟡 本机环境分 45/100 信号中等 · 系统时区 · 时区偏移".
 func envLine(r envcheck.Report) string {
 	dot := map[string]string{"low": "🟢", "medium": "🟡", "high": "🔴"}[r.Band]
-	parts := []string{fmt.Sprintf("%s 环境检测 %d/100 %s", dot, r.Total, r.BandName())}
+	parts := []string{fmt.Sprintf("%s 本机环境分 %d/100 %s", dot, r.Total, r.BandName())}
 	for _, s := range r.Signals {
 		if s.Hit() {
 			parts = append(parts, s.Name)

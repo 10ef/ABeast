@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"runtime"
 	"slices"
+	"strings"
 
 	"github.com/10ef/ABeast/internal/clash"
 )
@@ -33,32 +34,69 @@ func (m *Monitor) selfCheck(ctx context.Context, routes []Route, pinOn bool) []R
 	add := func(high bool, format string, a ...any) {
 		addRisk(Risk{High: high, Text: fmt.Sprintf(format, a...)})
 	}
-	// Probes that found HTTPS_PROXY in the environment suggest the agents
-	// have it too, and reach the proxy without TUN.
-	viaEnv := slices.ContainsFunc(routes, func(r Route) bool { return r.Trace.Via == "env" })
 	g, err := m.blocker.api.General(ctx)
-	if err == nil {
+	if err != nil {
+		add(false, "无法读取 Clash 运行配置，TUN、DNS 和 IPv6 设置未确认")
+	} else {
+		var unknown []string
 		switch {
 		case g.Mode == "direct":
 			addRisk(Risk{High: true, Hold: true, Text: "Clash 处于直连（direct）模式，流量都不走代理"})
-		case !g.Tun.Enable:
-			addRisk(Risk{High: true, Hold: !viaEnv, Text: "TUN 未开启：不认系统代理的程序（如命令行 Agent）和浏览器 WebRTC 会直连"})
-		case !g.Tun.StrictRoute && runtime.GOOS != "darwin":
-			add(false, "TUN 未开启 strict-route：部分流量（如 DNS、IPv6）可能绕过 TUN")
-		}
-		if proxies, err := m.blocker.api.Proxies(ctx); err == nil {
-			for _, r := range routes {
-				for _, grp := range r.Chain[min(1, len(r.Chain)):] {
-					info := proxies[grp]
-					if !slices.Contains(autoGroups, info.Type) {
-						continue
-					}
-					if reachesDirect(proxies, grp, 0) {
-						add(true, "%s 经过的 %s 会自动选择，且可能选到 DIRECT：节点失效时会直连", r.Target.Name, grp)
-					} else if !pinOn && len(info.All) > 1 {
-						add(false, "%s 经过的 %s 会自动换节点，可能跳区：建议打开「保护模式」", r.Target.Name, grp)
-					}
+		case g.Tun.Enable == nil:
+			unknown = append(unknown, "TUN")
+		case !*g.Tun.Enable:
+			addRisk(Risk{High: true, Hold: true, Text: "TUN 未开启，无法确认各 Agent 均走代理"})
+		default:
+			switch {
+			case g.Tun.AutoRoute == nil:
+				unknown = append(unknown, "TUN auto-route")
+			case !*g.Tun.AutoRoute:
+				add(true, "TUN auto-route 已关闭，请核对手动路由是否接管 Agent 流量")
+			}
+			if runtime.GOOS != "darwin" {
+				if g.Tun.StrictRoute == nil {
+					unknown = append(unknown, "TUN strict-route")
+				} else if !*g.Tun.StrictRoute {
+					add(false, "TUN strict-route 已关闭，部分流量可能绕过 TUN")
 				}
+			}
+			if g.Tun.DNSHijack == nil {
+				unknown = append(unknown, "TUN DNS 劫持")
+			} else if len(*g.Tun.DNSHijack) == 0 {
+				add(false, "TUN DNS 劫持列表为空")
+			}
+		}
+		if g.IPv6 == nil {
+			unknown = append(unknown, "Clash IPv6")
+		} else if *g.IPv6 {
+			add(false, "Clash IPv6 已开启，请核对系统 IPv6 路由")
+		}
+		if len(unknown) > 0 {
+			add(false, "Clash 未报告：%s", strings.Join(unknown, "、"))
+		}
+	}
+
+	proxies, err := m.blocker.api.Proxies(ctx)
+	for _, r := range routes {
+		if len(r.Chain) == 0 {
+			continue
+		}
+		outbound := r.Chain[0]
+		if isDirect(proxies, outbound) {
+			addRisk(Risk{High: true, Hold: true, Text: fmt.Sprintf("%s 探测经 %s 直连", r.Target.Name, outbound)})
+		}
+		if err != nil {
+			continue
+		}
+		for _, grp := range r.Chain[1:] {
+			info := proxies[grp]
+			if !slices.Contains(autoGroups, info.Type) {
+				continue
+			}
+			if reachesDirect(proxies, grp, 0) {
+				add(true, "%s 经过的 %s 会自动选择，且可能选到 DIRECT：节点失效时会直连", r.Target.Name, grp)
+			} else if !pinOn && len(info.All) > 1 {
+				add(false, "%s 经过的 %s 会自动换节点，可能跳区：建议打开「保护模式」", r.Target.Name, grp)
 			}
 		}
 	}
@@ -74,8 +112,12 @@ func (m *Monitor) selfCheck(ctx context.Context, routes []Route, pinOn bool) []R
 	return risks
 }
 
-// reachesDirect reports whether an automatic group can end up on DIRECT:
-// listing it, or through a member group that can.
+func isDirect(proxies map[string]clash.ProxyInfo, name string) bool {
+	return name == "DIRECT" || strings.EqualFold(proxies[name].Type, "Direct")
+}
+
+// reachesDirect reports whether an automatic group can end up on DIRECT
+// directly or through a member group.
 func reachesDirect(proxies map[string]clash.ProxyInfo, group string, depth int) bool {
 	if depth > 5 {
 		return false
@@ -83,12 +125,12 @@ func reachesDirect(proxies map[string]clash.ProxyInfo, group string, depth int) 
 	info := proxies[group]
 	switch {
 	case info.Type == "Selector":
-		return info.Now == "DIRECT" || (info.Now != "" && reachesDirect(proxies, info.Now, depth+1))
+		return isDirect(proxies, info.Now) || (info.Now != "" && reachesDirect(proxies, info.Now, depth+1))
 	case !slices.Contains(autoGroups, info.Type):
 		return false
 	}
 	for _, member := range info.All {
-		if member == "DIRECT" || reachesDirect(proxies, member, depth+1) {
+		if isDirect(proxies, member) || reachesDirect(proxies, member, depth+1) {
 			return true
 		}
 	}

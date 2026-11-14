@@ -342,10 +342,12 @@ func (m *Client) Delay(ctx context.Context, proxy, testURL string, timeout time.
 // General is the part of the core's running config the self-check reads.
 type General struct {
 	Mode string `json:"mode"`
+	IPv6 *bool  `json:"ipv6"`
 	Tun  struct {
-		Enable      bool `json:"enable"`
-		AutoRoute   bool `json:"auto-route"`
-		StrictRoute bool `json:"strict-route"`
+		Enable      *bool     `json:"enable"`
+		AutoRoute   *bool     `json:"auto-route"`
+		StrictRoute *bool     `json:"strict-route"`
+		DNSHijack   *[]string `json:"dns-hijack"`
 	} `json:"tun"`
 }
 

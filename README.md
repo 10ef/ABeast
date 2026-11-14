@@ -15,14 +15,14 @@ The macOS app is under **25 MB** and the Windows executable under **13 MB**, wit
 - **Real exit per API.** Probes `https://api.anthropic.com/cdn-cgi/trace` and `https://chatgpt.com/cdn-cgi/trace` through the same proxy rules as the agents: exit IP, country, city, ISP, latency and the node in use.
 - **Protection mode — one switch:**
   - **Pin the node (no leak).** Selects the agents' current node in the manual group their rule goes through. When that node dies or jitters, requests fail inside the proxy — they never move to another node, region, or DIRECT. Agents just retry.
-  - **Hold the agents.** When the proxy cannot contain the traffic — client quit or crashed while the exit is wrong, `direct` mode, TUN off without an env proxy — ABeast pauses `claude` / `codex` (SIGSTOP / NtSuspendProcess) within about 1–2 s, and resumes them seconds after the exit checks out again — usually before the prompt cache expires. Their sessions stay intact; at most the interrupted request is retried.
+  - **Hold the agents.** When the proxy cannot contain the traffic — client quit or crashed while the exit is wrong, `direct` mode, TUN explicitly off, or a probe using a DIRECT outbound — ABeast pauses `claude` / `codex` (SIGSTOP / NtSuspendProcess) within about 1–2 s, and resumes them seconds after the exit checks out again — usually before the prompt cache expires. Their sessions stay intact; at most the interrupted request is retried.
   - **Cut stray connections.** Every 500 ms, closes AI connections going through DIRECT or a node in a blocked region.
   - **Optional REJECT.** With the bundled [override script](clash/exitguard-override.js), unsafe routes are also switched to `REJECT` in the proxy.
   - ABeast cannot currently intercept traffic if the proxy client exits unexpectedly.
-- **Leak self-check.** Flags `direct` mode, TUN off, missing strict-route, and AI groups that can fall back to DIRECT.
+- **Network checks.** Flag `direct` mode, gaps in TUN settings reported by Clash, and observed or possible DIRECT paths. DNS leaks and system IPv6 routing require separate verification.
 - **Alerts.** Notifications on exit changes, new high risks, lost proxy controller, and paused/resumed agents; six tray states.
 - **Native panel.** Clicking the icon opens a panel with a card per route, the protection switch and the environment check; right-click for the full menu and advanced settings.
-- **Environment check.** Scores 0–100 how China-like this computer's timezone, UTC offset, preferred languages and region format look to the agents, after [fuck-claude.com](https://fuck-claude.com/)'s browser check. Local settings only; nothing is sent.
+- **Environment check.** Scores 0–100 how China-like this computer's timezone, UTC offset, preferred languages and region format look. The score describes local settings only. It does not estimate account-ban probability or network safety. Inspired by [fuck-claude.com](https://fuck-claude.com/).
 
 ## Performance and size
 

@@ -227,7 +227,7 @@ func (a *app) envCard(c *ui.Context, r envcheck.Report) {
 			ui.Text(c, r.BandName()).FontSize(12).Bold().TextColor(col).
 				Padding(3, 10).Radius(10).Background(col.Alpha(0.15))
 		})
-		ui.Meter(c, float64(r.Total), 0, 100, &ui.MeterLevels{Warning: 31, Critical: 61}).Label("环境检测分数")
+		ui.Meter(c, float64(r.Total), 0, 100, &ui.MeterLevels{Warning: 31, Critical: 61}).Label("本机环境分")
 		var hits []string
 		for _, sig := range r.Signals {
 			if sig.Hit() {
@@ -239,6 +239,7 @@ func (a *app) envCard(c *ui.Context, r envcheck.Report) {
 		} else {
 			ui.Text(c, "命中："+strings.Join(hits, "、")).FontSize(12).TextColor(t.TextMuted)
 		}
+		ui.Text(c, "本机设置参考分，不代表封号概率或网络安全结论").FontSize(11).TextColor(t.TextMuted)
 		ui.Collapsible(c.Key("env-details"), "详情", &a.panel.envOpen, func() {
 			for _, sig := range r.Signals {
 				ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {
@@ -262,7 +263,8 @@ func (a *app) risks(c *ui.Context, s monitor.Snapshot) {
 		return
 	}
 	t := c.Theme()
-	section(c, "防泄漏")
+	section(c, "网络检查")
+	ui.Text(c, "依据 Clash 配置和探测链路。DNS 泄漏与系统 IPv6 路由未经实测。").FontSize(11).TextColor(t.TextMuted)
 	for _, r := range s.Risks {
 		col := t.TextMuted
 		if r.High {

@@ -29,6 +29,8 @@ func TestReachesDirect(t *testing.T) {
 
 func TestSelfCheck(t *testing.T) {
 	fake := newFakeClash()
+	ipv6 := false
+	fake.ipv6 = &ipv6
 	fake.tun = map[string]any{"enable": false}
 	fake.proxies["♻️ 自动"] = clash.ProxyInfo{Name: "♻️ 自动", Type: "URLTest", Now: "日本 03", All: []string{"日本 03", "DIRECT"}}
 	fake.proxies["⚡ 测速"] = clash.ProxyInfo{Name: "⚡ 测速", Type: "URLTest", Now: "日本 03", All: []string{"日本 03", "香港 01"}}
@@ -62,7 +64,7 @@ func TestSelfCheck(t *testing.T) {
 	}
 
 	// TUN on without strict-route, pinned: only the hints that still hold.
-	fake.tun = map[string]any{"enable": true, "auto-route": true}
+	fake.tun = map[string]any{"enable": true, "auto-route": true, "strict-route": false, "dns-hijack": []string{"any:53"}}
 	risks = m.selfCheck(ctx, routes, true)
 	texts = texts[:0]
 	for _, r := range risks {
@@ -79,5 +81,49 @@ func TestSelfCheck(t *testing.T) {
 	fake.mode = "direct"
 	if risks := m.selfCheck(ctx, routes, true); !strings.Contains(risks[0].Text, "direct") {
 		t.Fatalf("%+v", risks)
+	}
+}
+
+func TestSelfCheckNetworkSettings(t *testing.T) {
+	fake := newFakeClash()
+	ipv6 := true
+	fake.ipv6 = &ipv6
+	fake.tun = map[string]any{"enable": true, "auto-route": false, "strict-route": true, "dns-hijack": []string{}}
+	srv := httptest.NewServer(fake)
+	defer srv.Close()
+	cfg := config.Default()
+	cfg.Mihomo = config.Mihomo{Controller: srv.URL, Secret: "s3cret"}
+	m := New(cfg)
+	ctx := context.Background()
+	risks := m.selfCheck(ctx, nil, true)
+	for _, want := range []string{"auto-route 已关闭", "DNS 劫持列表为空", "Clash IPv6 已开启"} {
+		if !slices.ContainsFunc(risks, func(r Risk) bool { return strings.Contains(r.Text, want) && !r.Hold }) {
+			t.Errorf("missing %q in %+v", want, risks)
+		}
+	}
+
+	fake.tun, fake.ipv6 = nil, nil
+	risks = m.selfCheck(ctx, nil, true)
+	if len(risks) != 1 || risks[0].High || risks[0].Hold || !strings.Contains(risks[0].Text, "未报告：TUN、Clash IPv6") {
+		t.Fatalf("missing settings should be shown as unknown: %+v", risks)
+	}
+}
+
+func TestSelfCheckDetectsDirectOutbound(t *testing.T) {
+	fake := newFakeClash()
+	fake.proxies["MyDirect"] = clash.ProxyInfo{Name: "MyDirect", Type: "Direct"}
+	srv := httptest.NewServer(fake)
+	defer srv.Close()
+	cfg := config.Default()
+	cfg.Mihomo = config.Mihomo{Controller: srv.URL, Secret: "s3cret"}
+	m := New(cfg)
+	for _, outbound := range []string{"DIRECT", "MyDirect"} {
+		routes := []Route{{Target: config.Target{Name: "Claude"}, Chain: []string{outbound, "选择"}}}
+		risks := m.selfCheck(context.Background(), routes, true)
+		if !slices.ContainsFunc(risks, func(r Risk) bool {
+			return r.Hold && r.High && strings.Contains(r.Text, "Claude 探测经 "+outbound)
+		}) {
+			t.Fatalf("%s: expected direct probe to require a hold: %+v", outbound, risks)
+		}
 	}
 }

@@ -101,7 +101,7 @@ func (a *app) envMenu() []*mygo.MenuItem {
 		items = append(items, &mygo.MenuItem{ID: fmt.Sprintf("env-%d", i), Disabled: true})
 	}
 	return append(items,
-		&mygo.MenuItem{ID: "env-note", Label: "仅读取本机时区与语言设置，不上传", Disabled: true},
+		&mygo.MenuItem{ID: "env-note", Label: "本机设置参考分，不代表封号概率或网络安全结论", Disabled: true},
 		mygo.Separator(),
 		&mygo.MenuItem{Label: "重新检测", Click: func(*mygo.MenuItem, *mygo.Window) { go a.checkEnv() }},
 	)
@@ -277,12 +277,12 @@ func (a *app) renderRisks(s monitor.Snapshot) {
 	head := ""
 	switch {
 	case high > 0:
-		head = fmt.Sprintf("⚠️ 防泄漏：%d 项风险", high)
+		head = fmt.Sprintf("⚠️ 网络检查：%d 项风险", high)
 		if n := len(s.Risks) - high; n > 0 {
 			head += fmt.Sprintf("，%d 条提示", n)
 		}
 	case len(s.Risks) > 0:
-		head = fmt.Sprintf("防泄漏：%d 条提示", len(s.Risks))
+		head = fmt.Sprintf("网络检查：%d 条提示", len(s.Risks))
 	}
 	a.item("leak-head").SetLabel(head)
 	a.item("leak-head").SetVisible(head != "")
