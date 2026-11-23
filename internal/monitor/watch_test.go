@@ -71,7 +71,10 @@ func TestWatchOnceClosesBadConns(t *testing.T) {
 	fake.conns = []clash.Conn{
 		conn("ok", "chatgpt.com", "codex", "日本 03"),
 		conn("hk", "api.anthropic.com", "claude", "香港 01"),
-		conn("direct", "claude.ai", "chrome", "DIRECT"),
+		conn("artifact-root", "claudeusercontent.com", "chrome", "DIRECT"),
+		conn("artifact-frame", "preview.frame.claudeusercontent.com", "chrome", "DIRECT"),
+		conn("artifact-lookalike", "evilclaudeusercontent.com", "chrome", "DIRECT"),
+		conn("artifact-foreign-suffix", "claudeusercontent.com.example.org", "chrome", "DIRECT"),
 		conn("new", "chatgpt.com", "codex", "美国 02"),
 		conn("other", "example.com", "chrome", "DIRECT"),
 	}
@@ -86,10 +89,10 @@ func TestWatchOnceClosesBadConns(t *testing.T) {
 	m.OnAlert = func(id, title, body string) { alerts = append(alerts, id) }
 
 	m.watchOnce(context.Background(), "ExitPin", map[string]time.Time{})
-	if !slices.Equal(fake.closed, []string{"hk", "direct"}) {
+	if !slices.Equal(fake.closed, []string{"hk", "artifact-root", "artifact-frame"}) {
 		t.Fatalf("closed %v", fake.closed)
 	}
-	if m.watch.Closed != 2 || m.watch.Last == "" {
+	if m.watch.Closed != 3 || m.watch.Last == "" {
 		t.Fatalf("%+v", m.watch)
 	}
 	if !slices.Equal(alerts, []string{"watch-Claude"}) { // once a minute per route

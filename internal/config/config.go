@@ -81,6 +81,15 @@ type Config struct {
 	Targets   []Target `json:"targets"`
 }
 
+const (
+	claudeName          = "Claude"
+	claudeHost          = "api.anthropic.com"
+	claudeContentDomain = "claudeusercontent.com"
+)
+
+// Keep the legacy domains sorted for comparison during migration.
+var legacyClaudeDomains = []string{"anthropic.com", "claude.ai", "claude.com"}
+
 // Default is the config of a first run.
 func Default() *Config {
 	return &Config{
@@ -94,8 +103,8 @@ func Default() *Config {
 		ShowDirect:           true,
 		TrayTitle:            "{flag} {code}",
 		Targets: []Target{
-			{Name: "Claude", Host: "api.anthropic.com", Proxy: "auto", Processes: []string{"claude"},
-				Domains:    []string{"anthropic.com", "claude.ai", "claude.com"},
+			{Name: claudeName, Host: claudeHost, Proxy: "auto", Processes: []string{"claude"},
+				Domains:    append(slices.Clone(legacyClaudeDomains), claudeContentDomain),
 				BlockGroup: "🛡 EG-Anthropic", ProbeWhileBlocked: "http://127.0.0.1:17892"},
 			{Name: "Codex", Host: "chatgpt.com", Proxy: "auto", Processes: []string{"codex"},
 				Domains:    []string{"openai.com", "chatgpt.com", "oaistatic.com", "oaiusercontent.com"},
@@ -188,8 +197,7 @@ func Load() (*Config, error) {
 	return cfg, Save(cfg)
 }
 
-// migrate carries settings of older versions over: pin_enabled,
-// watch_enabled and block_enabled, before protection mode joined them.
+// migrate carries settings of older versions over.
 func migrate(cfg *Config, data []byte) {
 	var old struct {
 		Pin   bool `json:"pin_enabled"`
@@ -198,6 +206,16 @@ func migrate(cfg *Config, data []byte) {
 	}
 	if json.Unmarshal(data, &old) == nil && (old.Pin || old.Watch || old.Block) {
 		cfg.Protect = true
+	}
+	for i := range cfg.Targets {
+		t := &cfg.Targets[i]
+		if t.Name != claudeName || t.Host != claudeHost {
+			continue
+		}
+		domains := slices.Sorted(slices.Values(t.Domains))
+		if slices.Equal(slices.Compact(domains), legacyClaudeDomains) {
+			t.Domains = append(t.Domains, claudeContentDomain)
+		}
 	}
 }
 

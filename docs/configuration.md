@@ -45,6 +45,8 @@ Default targets are Claude (`api.anthropic.com`, process `claude`) and Codex (`c
 - `domains`: vendor domains, including their subdomains, watched through the proxy controller. Defaults cover Anthropic/Claude and OpenAI/ChatGPT domains.
 - `block_group` and `probe_while_blocked`: optional blocking group and the local probe proxy that bypasses it.
 
+Claude's default domains include `claudeusercontent.com` for Artifacts. On startup, ABeast adds it to the default Claude target if its domain list still matches the three previous defaults.
+
 A probe is not packet inspection of the agent process. Different environment variables, PAC routing, application-specific proxies, rules, DNS behavior, or an agent running elsewhere can produce different paths. Apps opened from Finder may not inherit proxy variables from your shell. Verify the agent's own setup as well as the displayed probe.
 
 ## Controller setup
@@ -80,6 +82,8 @@ The icon's warning state takes priority over a success checkmark when protection
 ## Optional per-vendor blocking
 
 Use [clash/exitguard-override.js](../clash/exitguard-override.js) in your Mihomo client's JavaScript override facility. It creates `🛡 EG-OpenAI` and `🛡 EG-Anthropic`, each with a selected upstream and `REJECT`, then adds domain rules pointing at them. Rule mode is required.
+
+If you already installed the override, update your copy in the client and reload the profile to add the `claudeusercontent.com` rule.
 
 It also creates loopback-only mixed listeners: `17891` for OpenAI and `17892` for Anthropic. These bypass the blocking group so ABeast can test recovery. Keep those ports free. If no TCP controller exists, the script opens `127.0.0.1:9090` and requires your own existing `secret`; it never supplies a shared password. Existing controller settings are preserved. If you used an older override with a bundled shared secret, replace that secret in your client and ABeast configuration.
 

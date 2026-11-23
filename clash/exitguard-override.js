@@ -11,7 +11,7 @@ const VENDORS = [
     id: "anthropic",
     group: "🛡 EG-Anthropic",
     port: 17892,
-    domains: ["anthropic.com", "claude.ai", "claude.com"],
+    domains: ["anthropic.com", "claude.ai", "claude.com", "claudeusercontent.com"],
   },
   {
     id: "cursor",

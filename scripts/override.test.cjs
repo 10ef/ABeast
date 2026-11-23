@@ -62,6 +62,18 @@ test('honors a consistent domain policy ahead of a direct MATCH', () => {
   assert.ok(config.listeners.every(listener => listener.proxy === 'Proxy'));
 });
 
+test('adds the Claude content suffix and checks only its domain subtree', () => {
+  const config = apply(input(['MATCH,Proxy']));
+  assert.ok(config.rules.includes('DOMAIN-SUFFIX,claudeusercontent.com,🛡 EG-Anthropic'));
+
+  for (const host of ['claudeusercontent.com', 'preview.frame.claudeusercontent.com']) {
+    assert.throws(() => apply(input([`DOMAIN,${host},DIRECT`, 'MATCH,Proxy'])), /UPSTREAMS\.anthropic/);
+  }
+  for (const host of ['evilclaudeusercontent.com', 'claudeusercontent.com.example.org']) {
+    assert.doesNotThrow(() => apply(input([`DOMAIN,${host},DIRECT`, 'MATCH,Proxy'])));
+  }
+});
+
 test('adds only opted-in service rules without extra probe listeners', () => {
   const settings = { cursor: 'Proxy', copilot: 'Proxy' };
   const config = apply(apply(input(['MATCH,Proxy']), settings), settings);
